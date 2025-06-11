@@ -1,0 +1,276 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# Go build cache
+.cache/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.tmp
+*.temp
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfplan
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate.d/
+crash.log
+crash.*.log
+
+# AWS
+.aws/
+aws.config
+*.pem
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Local configuration files
+config.local.*
+*.local
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Test artifacts
+test-results/
+test-reports/
+*.xml
+
+# Build outputs
+dist/
+build/
+bin/
+
+# Temporary files
+tmp/
+temp/
+
+# Editor backups
+*.bak
+*.backup
+*.orig
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
+*~
+tags
+[._]*.un~
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Key files (IMPORTANT: Never commit keys!)
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+*.jks
+id_rsa*
+id_dsa*
+id_ed25519*
+id_ecdsa*
+
+# Secrets and credentials
+secrets/
+credentials/
+.secrets
+*.secret
+
+# Docker
+Dockerfile.local
+docker-compose.override.yml
+.dockerignore
+
+# Node.js (if any JavaScript tooling is added)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python (if any Python tooling is added)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Project-specific ignores
+# Compiled tokenizer examples
+cmd/example/example
+cmd/*/main
+
+# Test infrastructure state
+test/terraform/.terraform/
+test/terraform/*.tfstate*
+test/terraform/*.tfplan
+test/terraform/terraform.tfvars
+
+# Integration test artifacts
+test/integration/coverage.out
+test/integration/test-results/
+
+# Debug and profiling files
+*.prof
+*.trace
+debug
+debug.test
+
+# Benchmarking results
+benchmark.txt
+*.bench
+
+# Documentation builds
+docs/_build/
+site/
+
+# Local development scripts
+run.sh
+dev.sh
+local-*
+
+# Performance test results
+performance/
+load-test-results/
+
+# Certificates and keys for local development
+*.local.crt
+*.local.key
+localhost.*
+
+# Local AWS configuration
+.aws-local/
+localstack/
+
+# Mock data for testing
+mock-data/
+test-data/
+sample-data/
+
+# Backup files
+*.backup
+*.bak
+*.old
