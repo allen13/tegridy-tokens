@@ -16,14 +16,12 @@ import (
 type DynamoDBRepository struct {
 	client    *dynamodb.Client
 	tableName string
-	ttlField  string
 }
 
 // DynamoDBConfig holds configuration for DynamoDB repository
 type DynamoDBConfig struct {
 	Client    *dynamodb.Client
 	TableName string
-	TTLField  string // Optional: field name for TTL, default "ttl"
 }
 
 // TokenRecord represents a token record in DynamoDB
@@ -32,20 +30,13 @@ type TokenRecord struct {
 	TokenID       string `dynamodbav:"token_id"`
 	EncryptedData []byte `dynamodbav:"encrypted_data"`
 	CreatedAt     int64  `dynamodbav:"created_at"`
-	TTL           *int64 `dynamodbav:"ttl,omitempty"`
 }
 
 // NewDynamoDBRepository creates a new DynamoDB repository
 func NewDynamoDBRepository(cfg DynamoDBConfig) tokenizer.Repository {
-	ttlField := cfg.TTLField
-	if ttlField == "" {
-		ttlField = "ttl"
-	}
-	
 	return &DynamoDBRepository{
 		client:    cfg.Client,
 		tableName: cfg.TableName,
-		ttlField:  ttlField,
 	}
 }
 
@@ -56,12 +47,6 @@ func (r *DynamoDBRepository) Store(ctx context.Context, token *tokenizer.Token, 
 		TokenID:       token.ID,
 		EncryptedData: encryptedData,
 		CreatedAt:     token.CreatedAt.Unix(),
-	}
-	
-	// Calculate TTL if provided
-	if token.TTL != nil && *token.TTL > 0 {
-		ttl := time.Now().Unix() + *token.TTL
-		record.TTL = &ttl
 	}
 	
 	av, err := attributevalue.MarshalMap(record)
@@ -138,12 +123,6 @@ func (r *DynamoDBRepository) storeBatchChunk(ctx context.Context, items []tokeni
 			TokenID:       item.Token.ID,
 			EncryptedData: item.EncryptedData,
 			CreatedAt:     item.Token.CreatedAt.Unix(),
-		}
-		
-		// Calculate TTL if provided
-		if item.Token.TTL != nil && *item.Token.TTL > 0 {
-			ttl := time.Now().Unix() + *item.Token.TTL
-			record.TTL = &ttl
 		}
 		
 		av, err := attributevalue.MarshalMap(record)

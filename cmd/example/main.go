@@ -31,7 +31,6 @@ func main() {
 	repo := repository.NewDynamoDBRepository(repository.DynamoDBConfig{
 		Client:    dynamoClient,
 		TableName: "tegridy-tokens",
-		TTLField:  "ttl",
 	})
 
 	// Create encryptor with envelope encryption for better performance
@@ -68,9 +67,8 @@ func main() {
 func singleExample(ctx context.Context, tkn tokenizer.Tokenizer) {
 	// Tokenize sensitive data
 	req := tokenizer.TokenRequest{
-		Data:       "4111-1111-1111-1111", // Example credit card
-		Format:     "credit_card",
-		TTLSeconds: ptr(3600), // 1 hour TTL
+		Data:   "4111-1111-1111-1111", // Example credit card
+		Format: "credit_card",
 	}
 
 	resp, err := tkn.Tokenize(ctx, req)
@@ -102,9 +100,8 @@ func batchExample(ctx context.Context, tkn tokenizer.Tokenizer) {
 	requests := make([]tokenizer.TokenRequest, 100)
 	for i := 0; i < 100; i++ {
 		requests[i] = tokenizer.TokenRequest{
-			Data:       fmt.Sprintf("user-%d@example.com", i),
-			Format:     "email",
-			TTLSeconds: ptr(3600),
+			Data:   fmt.Sprintf("user-%d@example.com", i),
+			Format: "email",
 		}
 	}
 

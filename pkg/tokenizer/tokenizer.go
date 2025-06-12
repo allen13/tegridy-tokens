@@ -10,7 +10,6 @@ type Token struct {
 	ID        string    `json:"id"`
 	Value     string    `json:"value"`
 	CreatedAt time.Time `json:"created_at"`
-	TTL       *int64    `json:"ttl,omitempty"`
 }
 
 // TokenRequest represents a single tokenization request
@@ -18,7 +17,6 @@ type TokenRequest struct {
 	Data              string            `json:"data"`
 	Format            string            `json:"format,omitempty"`
 	Metadata          map[string]string `json:"metadata,omitempty"`
-	TTLSeconds        *int64            `json:"ttl_seconds,omitempty"`
 	PreserveFormat    bool              `json:"preserve_format,omitempty"`    // Enable format-preserving tokenization
 	FormatHint        DataFormat        `json:"format_hint,omitempty"`        // Hint for format detection
 }

@@ -271,7 +271,7 @@ func TestBatchOperations(t *testing.T) {
 	})
 }
 
-func TestTokenWithTTL(t *testing.T) {
+func TestTokenPersistence(t *testing.T) {
 	ctx := context.Background()
 	
 	// Setup mocks
@@ -285,16 +285,14 @@ func TestTokenWithTTL(t *testing.T) {
 	})
 	
 	// Setup expectations
-	ttl := int64(3600)
-	mockEnc.On("Encrypt", ctx, []byte("ttl-data")).Return([]byte("encrypted"), nil)
+	mockEnc.On("Encrypt", ctx, []byte("persistent-data")).Return([]byte("encrypted"), nil)
 	mockRepo.On("Store", ctx, mock.MatchedBy(func(token *Token) bool {
-		return token.TTL != nil && *token.TTL == ttl
+		return token.Value != "" // Just check token was created
 	}), []byte("encrypted")).Return(nil)
 	
 	// Execute
 	req := TokenRequest{
-		Data:       "ttl-data",
-		TTLSeconds: &ttl,
+		Data: "persistent-data",
 	}
 	resp, err := tkn.Tokenize(ctx, req)
 	

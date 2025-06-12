@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -14,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
+	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,7 +55,6 @@ func TestTokenizerIntegration(t *testing.T) {
 	repo := repository.NewDynamoDBRepository(repository.DynamoDBConfig{
 		Client:    dynamoClient,
 		TableName: tableName,
-		TTLField:  "ttl",
 	})
 
 	enc := encryption.NewKMSEncryptor(encryption.KMSConfig{
@@ -97,7 +98,7 @@ func TestTokenizerIntegration(t *testing.T) {
 		testBatchTokenization(t, ctx, tkn)
 	})
 
-	t.Run("TTLExpiration", func(t *testing.T) {
+	t.Run("TokenPersistence", func(t *testing.T) {
 		testTTLExpiration(t, ctx, tkn)
 	})
 
@@ -115,6 +116,10 @@ func TestTokenizerIntegration(t *testing.T) {
 
 	t.Run("DataIntegrity", func(t *testing.T) {
 		testDataIntegrity(t, ctx, tkn)
+	})
+
+	t.Run("LambdaInvocation", func(t *testing.T) {
+		testLambdaInvocation(t, ctx, terraformOptions)
 	})
 }
 
@@ -141,7 +146,6 @@ func testFormatPreservingTokenization(t *testing.T, ctx context.Context, tkn tok
 				Data:           tc.data,
 				PreserveFormat: true,
 				FormatHint:     tc.formatHint,
-				TTLSeconds:     ptr(3600),
 			}
 
 			resp, err := tkn.Tokenize(ctx, req)
@@ -233,22 +237,20 @@ func testSingleTokenization(t *testing.T, ctx context.Context, tkn tokenizer.Tok
 	testCases := []struct {
 		name string
 		data string
-		ttl  *int64
 	}{
-		{"CreditCard", "4111-1111-1111-1111", ptr(3600)},
-		{"SSN", "123-45-6789", ptr(7200)},
-		{"Email", "test@example.com", nil},
-		{"Phone", "+1-555-123-4567", ptr(1800)},
-		{"CustomData", "sensitive-information-12345", ptr(3600)},
+		{"CreditCard", "4111-1111-1111-1111"},
+		{"SSN", "123-45-6789"},
+		{"Email", "test@example.com"},
+		{"Phone", "+1-555-123-4567"},
+		{"CustomData", "sensitive-information-12345"},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Tokenize
 			req := tokenizer.TokenRequest{
-				Data:       tc.data,
-				Format:     tc.name,
-				TTLSeconds: tc.ttl,
+				Data:   tc.data,
+				Format: tc.name,
 			}
 
 			resp, err := tkn.Tokenize(ctx, req)
@@ -355,12 +357,11 @@ func testBatchTokenization(t *testing.T, ctx context.Context, tkn tokenizer.Toke
 	}
 }
 
-// testTTLExpiration tests token expiration
+// testTokenPersistence tests token persistence (no TTL)
 func testTTLExpiration(t *testing.T, ctx context.Context, tkn tokenizer.Tokenizer) {
-	// Create token with 2 second TTL
+	// Create token (no TTL support)
 	req := tokenizer.TokenRequest{
-		Data:       "ttl-test-data",
-		TTLSeconds: ptr(2),
+		Data: "persistent-test-data",
 	}
 
 	resp, err := tkn.Tokenize(ctx, req)
@@ -370,15 +371,15 @@ func testTTLExpiration(t *testing.T, ctx context.Context, tkn tokenizer.Tokenize
 	// Immediately detokenize - should work
 	data, err := tkn.Detokenize(ctx, resp.Token)
 	require.NoError(t, err)
-	assert.Equal(t, "ttl-test-data", data)
+	assert.Equal(t, "persistent-test-data", data)
 
-	// Wait for TTL to expire (adding buffer for DynamoDB TTL processing)
-	t.Log("Waiting for TTL expiration...")
-	time.Sleep(3 * time.Second)
-
-	// Note: DynamoDB TTL deletion happens in the background and can take up to 48 hours
-	// For testing purposes, we'll just verify the token was created with TTL
-	// In production, expired tokens would eventually be deleted
+	// Verify token persists (no TTL)
+	t.Log("Verifying token persistence...")
+	data2, err := tkn.Detokenize(ctx, resp.Token)
+	require.NoError(t, err)
+	assert.Equal(t, "persistent-test-data", data2)
+	
+	t.Log("✓ Token persists as expected (no TTL support)")
 }
 
 // testConcurrentOperations tests thread safety
@@ -572,5 +573,195 @@ func generateRandomString(length int) string {
 		b[i] = charset[i%len(charset)]
 	}
 	return string(b)
+}
+
+// testLambdaInvocation tests the Lambda function directly
+func testLambdaInvocation(t *testing.T, ctx context.Context, terraformOptions *terraform.Options) {
+	// Get Lambda function name from outputs
+	lambdaFunctionName := terraform.Output(t, terraformOptions, "lambda_function_name")
+	awsRegion := terraform.Output(t, terraformOptions, "aws_region")
+
+	// Create Lambda client
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(awsRegion))
+	require.NoError(t, err)
+	
+	lambdaClient := lambda.NewFromConfig(cfg)
+
+	t.Run("HealthCheck", func(t *testing.T) {
+		// Test health check
+		payload := `{"operation": "health"}`
+		
+		result, err := lambdaClient.Invoke(ctx, &lambda.InvokeInput{
+			FunctionName: &lambdaFunctionName,
+			Payload:      []byte(payload),
+		})
+		require.NoError(t, err)
+		
+		// Check response
+		assert.Equal(t, int32(200), result.StatusCode)
+		assert.Nil(t, result.FunctionError)
+		
+		t.Logf("=== Lambda Health Check ===")
+		t.Logf("Payload: %s", payload)
+		t.Logf("Response: %s", string(result.Payload))
+		
+		// Verify response structure
+		var response map[string]any
+		err = json.Unmarshal(result.Payload, &response)
+		require.NoError(t, err)
+		assert.True(t, response["success"].(bool))
+		
+		data := response["data"].(map[string]any)
+		assert.Equal(t, "healthy", data["status"])
+		assert.Equal(t, "tegridy-tokens", data["service"])
+	})
+
+	t.Run("TokenizeBatch", func(t *testing.T) {
+		// Test batch tokenization
+		payload := `{
+			"operation": "tokenize",
+			"data": {
+				"requests": [
+					{
+						"data": "4111-1111-1111-1111",
+						"preserve_format": true
+					},
+					{
+						"data": "test@example.com"
+					}
+				]
+			}
+		}`
+		
+		result, err := lambdaClient.Invoke(ctx, &lambda.InvokeInput{
+			FunctionName: &lambdaFunctionName,
+			Payload:      []byte(payload),
+		})
+		require.NoError(t, err)
+		
+		// Check response
+		assert.Equal(t, int32(200), result.StatusCode)
+		assert.Nil(t, result.FunctionError)
+		
+		t.Logf("=== Lambda Batch Tokenization ===")
+		t.Logf("Payload: %s", payload)
+		t.Logf("Response: %s", string(result.Payload))
+		
+		// Verify response structure
+		var response map[string]any
+		err = json.Unmarshal(result.Payload, &response)
+		require.NoError(t, err)
+		assert.True(t, response["success"].(bool))
+		
+		// Extract tokens for detokenization test
+		data := response["data"].(map[string]any)
+		responses := data["responses"].([]any)
+		assert.Len(t, responses, 2)
+		
+		// Get tokens for next test
+		var tokens []string
+		for _, resp := range responses {
+			respMap := resp.(map[string]any)
+			assert.True(t, respMap["success"].(bool))
+			tokens = append(tokens, respMap["token"].(string))
+		}
+
+		// Test batch detokenization
+		t.Run("DetokenizeBatch", func(t *testing.T) {
+			detokenizePayload := fmt.Sprintf(`{
+				"operation": "detokenize",
+				"data": {
+					"tokens": ["%s", "%s"]
+				}
+			}`, tokens[0], tokens[1])
+			
+			result, err := lambdaClient.Invoke(ctx, &lambda.InvokeInput{
+				FunctionName: &lambdaFunctionName,
+				Payload:      []byte(detokenizePayload),
+			})
+			require.NoError(t, err)
+			
+			// Check response
+			assert.Equal(t, int32(200), result.StatusCode)
+			assert.Nil(t, result.FunctionError)
+			
+			t.Logf("=== Lambda Batch Detokenization ===")
+			t.Logf("Payload: %s", detokenizePayload)
+			t.Logf("Response: %s", string(result.Payload))
+			
+			// Verify response structure
+			var response map[string]any
+			err = json.Unmarshal(result.Payload, &response)
+			require.NoError(t, err)
+			assert.True(t, response["success"].(bool))
+			
+			data := response["data"].(map[string]any)
+			results := data["results"].(map[string]any)
+			assert.Len(t, results, 2)
+			
+			// The response is a map[token]data, so we need to check against our tokens
+			for _, token := range tokens {
+				_, exists := results[token]
+				assert.True(t, exists, "Token %s should exist in results", token)
+			}
+		})
+	})
+
+	t.Run("ErrorHandling", func(t *testing.T) {
+		// Test invalid operation
+		payload := `{"operation": "invalid_operation"}`
+		
+		result, err := lambdaClient.Invoke(ctx, &lambda.InvokeInput{
+			FunctionName: &lambdaFunctionName,
+			Payload:      []byte(payload),
+		})
+		require.NoError(t, err)
+		
+		// Check response
+		assert.Equal(t, int32(200), result.StatusCode)
+		assert.Nil(t, result.FunctionError)
+		
+		// Verify error response structure
+		var response map[string]any
+		err = json.Unmarshal(result.Payload, &response)
+		require.NoError(t, err)
+		assert.False(t, response["success"].(bool))
+		assert.Contains(t, response["error"].(string), "Unknown operation")
+		
+		t.Logf("=== Lambda Error Handling ===")
+		t.Logf("Payload: %s", payload)
+		t.Logf("Response: %s", string(result.Payload))
+	})
+
+	t.Run("InvalidRequest", func(t *testing.T) {
+		// Test invalid request format
+		payload := `{
+			"operation": "tokenize",
+			"data": {
+				"invalid": "format"
+			}
+		}`
+		
+		result, err := lambdaClient.Invoke(ctx, &lambda.InvokeInput{
+			FunctionName: &lambdaFunctionName,
+			Payload:      []byte(payload),
+		})
+		require.NoError(t, err)
+		
+		// Check response
+		assert.Equal(t, int32(200), result.StatusCode)
+		assert.Nil(t, result.FunctionError)
+		
+		// Verify error response structure
+		var response map[string]any
+		err = json.Unmarshal(result.Payload, &response)
+		require.NoError(t, err)
+		assert.False(t, response["success"].(bool))
+		assert.Contains(t, response["error"].(string), "Invalid request format")
+		
+		t.Logf("=== Lambda Invalid Request ===")
+		t.Logf("Payload: %s", payload)
+		t.Logf("Response: %s", string(result.Payload))
+	})
 }
 

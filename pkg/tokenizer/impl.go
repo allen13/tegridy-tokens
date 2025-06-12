@@ -110,7 +110,6 @@ func (t *tokenizerImpl) tokenizeStandard(ctx context.Context, req TokenRequest) 
 		ID:        uuid.New().String(),
 		Value:     tokenValue,
 		CreatedAt: time.Now().UTC(),
-		TTL:       req.TTLSeconds,
 	}
 
 	// Encrypt the sensitive data
@@ -157,8 +156,7 @@ func (t *tokenizerImpl) tokenizeWithFormatPreservation(ctx context.Context, req 
 				ID:        uuid.New().String(),
 				Value:     fptToken,
 				CreatedAt: time.Now().UTC(),
-				TTL:       req.TTLSeconds,
-			}
+				}
 
 			// For FPT, we store the original data encrypted with FPT metadata
 			metadata := map[string]any{
@@ -345,7 +343,6 @@ func (t *tokenizerImpl) worker(ctx context.Context, jobs <-chan jobItem, results
 			ID:        uuid.New().String(),
 			Value:     tokenValue,
 			CreatedAt: time.Now().UTC(),
-			TTL:       job.request.TTLSeconds,
 		}
 
 		// Encrypt data
