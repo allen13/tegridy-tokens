@@ -8,7 +8,6 @@ A high-performance Go library for tokenizing and detokenizing sensitive data usi
 - **Format-Preserving Tokenization (FPT)**: Generate tokens that maintain the format of original data
 - **Envelope Encryption**: Uses AWS KMS for key management with local data encryption for performance
 - **Batch Processing**: Optimized for processing large volumes of data
-- **TTL Support**: Automatic token expiration
 - **Concurrent Processing**: Parallel processing with configurable worker pools
 - **Big Data Ready**: Designed to handle millions of tokens efficiently
 
@@ -28,11 +27,11 @@ graph TD
     G --> H
     H --> I[(DynamoDB Storage)]
     I --> J[Token Response]
-    
+
     classDef aws fill:#ff9900,stroke:#333,stroke-width:2px,color:#fff
     classDef tegridy fill:#2563eb,stroke:#333,stroke-width:2px,color:#fff
     classDef token fill:#10b981,stroke:#333,stroke-width:2px,color:#fff
-    
+
     class H,I aws
     class B,C,D,E tegridy
     class F,G,J token
@@ -148,7 +147,6 @@ batchResp, err := tkn.TokenizeBatch(ctx, tokenizer.BatchTokenRequest{
 })
 ```
 
-
 ## DynamoDB Table Schema
 
 Create a DynamoDB table with the following schema:
@@ -156,7 +154,6 @@ Create a DynamoDB table with the following schema:
 ```
 Table Name: tegridy-tokens
 Partition Key: token_value (String)
-TTL Attribute: ttl (Number) - optional
 ```
 
 ## Performance Optimizations
@@ -170,7 +167,6 @@ TTL Attribute: ttl (Number) - optional
 
 - All sensitive data is encrypted using AWS KMS
 - Tokens are cryptographically secure random values
-- Supports automatic token expiration via TTL
 - Envelope encryption prevents KMS throttling
 - No sensitive data is ever logged
 
@@ -192,11 +188,7 @@ TTL Attribute: ttl (Number) - optional
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "kms:Encrypt",
-        "kms:Decrypt",
-        "kms:GenerateDataKey"
-      ],
+      "Action": ["kms:Encrypt", "kms:Decrypt", "kms:GenerateDataKey"],
       "Resource": "arn:aws:kms:region:account:key/*"
     }
   ]
@@ -206,29 +198,32 @@ TTL Attribute: ttl (Number) - optional
 ## Configuration Options
 
 ### Tokenizer Configuration
+
 - `Workers`: Number of concurrent workers for batch processing (default: 10)
 - `TokenGenerator`: Custom token generation strategy
 - `EnableFPT`: Enable format-preserving tokenization (default: false)
 - `FPTConfig`: Configuration for format-preserving tokenization
 
 ### Format-Preserving Tokenization Configuration
+
 - `AutoDetect`: Automatically detect data format (default: false)
 - `DefaultFormat`: Default format when detection fails
 - `CustomFormats`: Define custom format patterns
 
 ### KMS Configuration
+
 - `UseEnvelope`: Enable envelope encryption (recommended)
 - `CacheDataKeys`: Cache data keys for performance
 - `CacheSize`: Number of data keys to cache
-- `CacheTTLSeconds`: TTL for cached data keys
 
 ### DynamoDB Configuration
+
 - `TableName`: DynamoDB table name
-- `TTLField`: Field name for TTL attribute
 
 ## Example Performance
 
 Based on AWS best practices, the system can handle:
+
 - Single tokenization: ~10-20ms
 - Batch tokenization: 10,000+ tokens/second
 - With external caching (DAX): 100,000+ tokens/second
